@@ -21,9 +21,9 @@ zzlib = require("zzlib")
 -- read the file into a string
 local file,err = io.open("input.gz","rb")
 if not file then error(err) end
-local in = file:read("*a")
+local input = file:read("*a")
 file:close()
 
--- get the unpacked contents of the file in the 'out' string
-local out = zzlib.gunzip(in)
+-- get the unpacked contents of the file in the 'output' string
+local output = zzlib.gunzip(input)
 ```
