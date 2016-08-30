@@ -13,33 +13,35 @@ local zzlib = {}
 
 local reverse = {}
 
+local bit = bit32 or bit
+
 local function bitstream_init(buf,pos)
   local function flushb(bs,n)
     bs.n = bs.n - n
-    bs.b = bit32.rshift(bs.b,n)
+    bs.b = bit.rshift(bs.b,n)
   end
   local function getb(bs,n)
     while bs.n < n do
-      bs.b = bs.b + bit32.lshift(bs.buf:byte(bs.pos),bs.n)
+      bs.b = bs.b + bit.lshift(bs.buf:byte(bs.pos),bs.n)
       bs.pos = bs.pos + 1
       bs.n = bs.n + 8
     end
-    local ret = bit32.band(bs.b,bit32.lshift(1,n)-1)
+    local ret = bit.band(bs.b,bit.lshift(1,n)-1)
     flushb(bs,n)
     return ret
   end
   local function getv(bs,hufftable,n)
     while bs.n < n do
-      bs.b = bs.b + bit32.lshift(bs.buf:byte(bs.pos),bs.n)
+      bs.b = bs.b + bit.lshift(bs.buf:byte(bs.pos),bs.n)
       bs.pos = bs.pos + 1
       bs.n = bs.n + 8
     end
-    local h = reverse[bit32.band(bs.b,255)]
-    local l = reverse[bit32.band(bit32.rshift(bs.b,8),255)]
-    local v = bit32.band(bit32.rshift(bit32.lshift(h,8)+l,16-n),2^n-1)
+    local h = reverse[bit.band(bs.b,255)]
+    local l = reverse[bit.band(bit.rshift(bs.b,8),255)]
+    local v = bit.band(bit.rshift(bit.lshift(h,8)+l,16-n),2^n-1)
     local e = hufftable[v]
-    local len = bit32.band(e,15)
-    local ret = bit32.rshift(e,4)
+    local len = bit.band(e,15)
+    local ret = bit.rshift(e,4)
     flushb(bs,len)
     return ret
   end
@@ -56,9 +58,9 @@ local function bitstream_init(buf,pos)
 end
 
 local function read32(str,pos)
-  local x = bit32.lshift(str:byte(pos+3),24)
-          + bit32.lshift(str:byte(pos+2),16)
-          + bit32.lshift(str:byte(pos+1),8)
+  local x = bit.lshift(str:byte(pos+3),24)
+          + bit.lshift(str:byte(pos+2),16)
+          + bit.lshift(str:byte(pos+1),8)
           + str:byte(pos)
   return x
 end
@@ -115,8 +117,8 @@ local function inflate_loop(out,bs,nlit,ndist,littable,disttable)
       if lit < 265 then
         size = size + lit - 257
       elseif lit < 285 then
-        nbits = bit32.rshift(lit-261,2)
-        size = size + bit32.lshift(bit32.band(lit-261,3)+4,nbits)
+        nbits = bit.rshift(lit-261,2)
+        size = size + bit.lshift(bit.band(lit-261,3)+4,nbits)
       else
         size = 258
       end
@@ -127,8 +129,8 @@ local function inflate_loop(out,bs,nlit,ndist,littable,disttable)
       if v < 4 then
         dist = dist + v
       else
-        nbits = bit32.rshift(v-2,1)
-        dist = dist + bit32.lshift(bit32.band(v,1)+2,nbits)
+        nbits = bit.rshift(v-2,1)
+        dist = dist + bit.lshift(bit.band(v,1)+2,nbits)
         dist = dist + bs:getb(nbits)
       end
       local p = #out-dist+1
@@ -180,9 +182,10 @@ local function inflate_dynamic(out,bs)
       error("wrong entry in depth table for literal/length alphabet: "..v);
     end
   end
-  local sdepths = string.char(table.unpack(depths))
-  local littable,nlit = hufftable_create(table.pack(sdepths:byte(1,hlit)))
-  local disttable,ndist = hufftable_create(table.pack(sdepths:byte(hlit+1,-1)))
+  local litdepths = {} for i=1,hlit do table.insert(litdepths,depths[i]) end
+  local littable,nlit = hufftable_create(litdepths)
+  local distdepths = {} for i=hlit+1,#depths do table.insert(distdepths,depths[i]) end
+  local disttable,ndist = hufftable_create(distdepths)
   inflate_loop(out,bs,nlit,ndist,littable,disttable)
 end
 
@@ -206,13 +209,13 @@ local function inflate_static(out,bs)
 end
 
 local function inflate_uncompressed(out,bs)
-  bs:flushb(bit32.band(bs.n,7))
+  bs:flushb(bit.band(bs.n,7))
   local len = bs:getb(16)
   if bs.n > 0 then
     error("Unexpected.. should be zero remaining bits in buffer.")
   end
   local nlen = bs:getb(16)
-  if bit32.bxor(len,nlen) ~= 65535 then
+  if bit.bxor(len,nlen) ~= 65535 then
     error("LEN and NLEN don't match")
   end
   local ret = bs.buf:sub(bs.pos,bs.pos+len-1)
@@ -226,7 +229,7 @@ function zzlib.gunzip(buf)
   local p=11
   local size = buf:len()
   local last,type
-  if bit32.band(buf:byte(4),8) ~= 0 then
+  if bit.band(buf:byte(4),8) ~= 0 then
     local pos = buf:find("\0",p)
     local name = buf:sub(p,pos-1)
     p = pos+1
@@ -248,13 +251,13 @@ function zzlib.gunzip(buf)
       error("unsupported block type")
     end
   until last == 1
-  bs:flushb(bit32.band(bs.n,7))
+  bs:flushb(bit.band(bs.n,7))
   local str = ""
   local size = #output
   local i=1
   while size > 0 do
-    local bsize = size>=1000 and 1000 or size
-    str = str .. string.char(table.unpack(output,i,i+bsize-1))
+    local bsize = size>=2000 and 2000 or size
+    str = str .. string.char(unpack(output,i,i+bsize-1))
     i = i + bsize
     size = size - bsize
   end
@@ -265,8 +268,8 @@ end
 for i=0,255 do
   local k=0
   for j=0,7 do
-    if bit32.band(i,bit32.lshift(1,j)) ~= 0 then
-      k = k + bit32.lshift(1,7-j)
+    if bit.band(i,bit.lshift(1,j)) ~= 0 then
+      k = k + bit.lshift(1,7-j)
     end
   end
   reverse[i] = k
