@@ -14,6 +14,7 @@ local zzlib = {}
 local reverse = {}
 
 local bit = bit32 or bit
+local unpack = table.unpack or unpack
 
 local function bitstream_init(buf,pos)
   local function flushb(bs,n)
