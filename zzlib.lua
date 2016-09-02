@@ -17,10 +17,12 @@ local bit = bit32 or bit
 local unpack = table.unpack or unpack
 
 local function bitstream_init(buf,pos)
+  -- get rid of n first bits
   local function flushb(bs,n)
     bs.n = bs.n - n
     bs.b = bit.rshift(bs.b,n)
   end
+  -- get a number of n bits from stream
   local function getb(bs,n)
     while bs.n < n do
       bs.b = bs.b + bit.lshift(bs.buf:byte(bs.pos),bs.n)
@@ -32,6 +34,7 @@ local function bitstream_init(buf,pos)
     bs.b = bit.rshift(bs.b,n)
     return ret
   end
+  -- get next variable-size of maximum size=n element from stream, according to Huffman table
   local function getv(bs,hufftable,n)
     while bs.n < n do
       bs.b = bs.b + bit.lshift(bs.buf:byte(bs.pos),bs.n)
@@ -49,9 +52,9 @@ local function bitstream_init(buf,pos)
     return ret
   end
   local bs = {
-    buf = buf,  -- buffer
-    pos = pos,  -- position in string
-    b = 0,      -- bits buffer
+    buf = buf,  -- character buffer
+    pos = pos,  -- position in char buffer
+    b = 0,      -- bit buffer
     n = 0,      -- number of bits in buffer
     flushb = flushb,
     getb = getb,
