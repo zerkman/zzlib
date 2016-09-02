@@ -61,6 +61,11 @@ local function bitstream_init(file)
     bs.b = bit.rshift(bs.b,len)
     return ret
   end
+  local function close(bs)
+    if bs.file then
+      bs.file:close()
+    end
+  end
   local bs = {
     file = file,  -- the open file handle
     buf = nil,    -- character buffer
@@ -70,7 +75,8 @@ local function bitstream_init(file)
     n = 0,        -- number of bits in buffer
     flushb = flushb,
     getb = getb,
-    getv = getv
+    getv = getv,
+    close = close
   }
   if type(file) == "string" then
     bs.buf = file
@@ -265,6 +271,7 @@ local function inflate_main(bs)
     end
   until last == 1
   bs:flushb(bit.band(bs.n,7))
+  bs:close()
   local str = ""
   local size = #output
   local i=1
