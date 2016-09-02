@@ -28,7 +28,8 @@ local function bitstream_init(buf,pos)
       bs.n = bs.n + 8
     end
     local ret = bit.band(bs.b,bit.lshift(1,n)-1)
-    flushb(bs,n)
+    bs.n = bs.n - n
+    bs.b = bit.rshift(bs.b,n)
     return ret
   end
   local function getv(bs,hufftable,n)
@@ -43,7 +44,8 @@ local function bitstream_init(buf,pos)
     local e = hufftable[v]
     local len = bit.band(e,15)
     local ret = bit.rshift(e,4)
-    flushb(bs,len)
+    bs.n = bs.n - len
+    bs.b = bit.rshift(bs.b,len)
     return ret
   end
   local bs = {
