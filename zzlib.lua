@@ -17,55 +17,6 @@ local bit = bit32 or bit
 local unpack = table.unpack or unpack
 
 local function bitstream_init(file)
-  -- get rid of n first bits
-  local function flushb(bs,n)
-    bs.n = bs.n - n
-    bs.b = bit.rshift(bs.b,n)
-  end
-  -- get a number of n bits from stream
-  local function getb(bs,n)
-    while bs.n < n do
-      if bs.pos > bs.len then
-        bs.buf = bs.file:read(4096)
-        bs.len = bs.buf:len()
-        bs.pos = 1
-      end
-      bs.b = bs.b + bit.lshift(bs.buf:byte(bs.pos),bs.n)
-      bs.pos = bs.pos + 1
-      bs.n = bs.n + 8
-    end
-    local ret = bit.band(bs.b,bit.lshift(1,n)-1)
-    bs.n = bs.n - n
-    bs.b = bit.rshift(bs.b,n)
-    return ret
-  end
-  -- get next variable-size of maximum size=n element from stream, according to Huffman table
-  local function getv(bs,hufftable,n)
-    while bs.n < n do
-      if bs.pos > bs.len then
-        bs.buf = bs.file:read(4096)
-        bs.len = bs.buf:len()
-        bs.pos = 1
-      end
-      bs.b = bs.b + bit.lshift(bs.buf:byte(bs.pos),bs.n)
-      bs.pos = bs.pos + 1
-      bs.n = bs.n + 8
-    end
-    local h = reverse[bit.band(bs.b,255)]
-    local l = reverse[bit.band(bit.rshift(bs.b,8),255)]
-    local v = bit.band(bit.rshift(bit.lshift(h,8)+l,16-n),2^n-1)
-    local e = hufftable[v]
-    local len = bit.band(e,15)
-    local ret = bit.rshift(e,4)
-    bs.n = bs.n - len
-    bs.b = bit.rshift(bs.b,len)
-    return ret
-  end
-  local function close(bs)
-    if bs.file then
-      bs.file:close()
-    end
-  end
   local bs = {
     file = file,  -- the open file handle
     buf = nil,    -- character buffer
@@ -73,12 +24,58 @@ local function bitstream_init(file)
     pos = 1,      -- position in char buffer
     b = 0,        -- bit buffer
     n = 0,        -- number of bits in buffer
-    flushb = flushb,
-    getb = getb,
-    getv = getv,
-    close = close
   }
+  -- get rid of n first bits
+  function bs:flushb(n)
+    self.n = bs.n - n
+    bs.b = bit.rshift(bs.b,n)
+  end
+  -- get a number of n bits from stream
+  function bs:getb(n)
+    while self.n < n do
+      if self.pos > self.len then
+        self.buf = self.file:read(4096)
+        self.len = self.buf:len()
+        self.pos = 1
+      end
+      self.b = self.b + bit.lshift(self.buf:byte(self.pos),self.n)
+      self.pos = self.pos + 1
+      self.n = self.n + 8
+    end
+    local ret = bit.band(self.b,bit.lshift(1,n)-1)
+    self.n = self.n - n
+    self.b = bit.rshift(self.b,n)
+    return ret
+  end
+  -- get next variable-size of maximum size=n element from stream, according to Huffman table
+  function bs:getv(hufftable,n)
+    while self.n < n do
+      if self.pos > self.len then
+        self.buf = self.file:read(4096)
+        self.len = self.buf:len()
+        self.pos = 1
+      end
+      self.b = self.b + bit.lshift(self.buf:byte(self.pos),self.n)
+      self.pos = self.pos + 1
+      self.n = self.n + 8
+    end
+    local h = reverse[bit.band(self.b,255)]
+    local l = reverse[bit.band(bit.rshift(self.b,8),255)]
+    local v = bit.band(bit.rshift(bit.lshift(h,8)+l,16-n),2^n-1)
+    local e = hufftable[v]
+    local len = bit.band(e,15)
+    local ret = bit.rshift(e,4)
+    self.n = self.n - len
+    self.b = bit.rshift(self.b,len)
+    return ret
+  end
+  function bs:close()
+    if self.file then
+      self.file:close()
+    end
+  end
   if type(file) == "string" then
+    bs.file = nil
     bs.buf = file
   else
     bs.buf = file:read(4096)
