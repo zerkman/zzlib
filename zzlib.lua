@@ -16,7 +16,7 @@ local reverse = {}
 local bit = bit32 or bit
 local unpack = table.unpack or unpack
 
-local function bitstream_init(buf,pos)
+local function bitstream_init(file)
   -- get rid of n first bits
   local function flushb(bs,n)
     bs.n = bs.n - n
@@ -25,6 +25,11 @@ local function bitstream_init(buf,pos)
   -- get a number of n bits from stream
   local function getb(bs,n)
     while bs.n < n do
+      if bs.pos > bs.len then
+        bs.buf = bs.file:read(4096)
+        bs.len = bs.buf:len()
+        bs.pos = 1
+      end
       bs.b = bs.b + bit.lshift(bs.buf:byte(bs.pos),bs.n)
       bs.pos = bs.pos + 1
       bs.n = bs.n + 8
@@ -37,6 +42,11 @@ local function bitstream_init(buf,pos)
   -- get next variable-size of maximum size=n element from stream, according to Huffman table
   local function getv(bs,hufftable,n)
     while bs.n < n do
+      if bs.pos > bs.len then
+        bs.buf = bs.file:read(4096)
+        bs.len = bs.buf:len()
+        bs.pos = 1
+      end
       bs.b = bs.b + bit.lshift(bs.buf:byte(bs.pos),bs.n)
       bs.pos = bs.pos + 1
       bs.n = bs.n + 8
@@ -52,23 +62,23 @@ local function bitstream_init(buf,pos)
     return ret
   end
   local bs = {
-    buf = buf,  -- character buffer
-    pos = pos,  -- position in char buffer
-    b = 0,      -- bit buffer
-    n = 0,      -- number of bits in buffer
+    file = file,  -- the open file handle
+    buf = nil,    -- character buffer
+    len = nil,    -- length of character buffer
+    pos = 1,      -- position in char buffer
+    b = 0,        -- bit buffer
+    n = 0,        -- number of bits in buffer
     flushb = flushb,
     getb = getb,
     getv = getv
   }
+  if type(file) == "string" then
+    bs.buf = file
+  else
+    bs.buf = file:read(4096)
+  end
+  bs.len = bs.buf:len()
   return bs
-end
-
-local function read32(str,pos)
-  local x = bit.lshift(str:byte(pos+3),24)
-          + bit.lshift(str:byte(pos+2),16)
-          + bit.lshift(str:byte(pos+1),8)
-          + str:byte(pos)
-  return x
 end
 
 local function hufftable_create(depths)
@@ -110,7 +120,7 @@ local function hufftable_create(depths)
   return table,nbits
 end
 
-local function inflate_loop(out,bs,nlit,ndist,littable,disttable)
+local function inflate_block_loop(out,bs,nlit,ndist,littable,disttable)
   local lit
   repeat
     lit = bs:getv(littable,nlit)
@@ -150,7 +160,7 @@ local function inflate_loop(out,bs,nlit,ndist,littable,disttable)
   return o
 end
 
-local function inflate_dynamic(out,bs)
+local function inflate_block_dynamic(out,bs)
   local order = { 17, 18, 19, 1, 9, 8, 10, 7, 11, 6, 12, 5, 13, 4, 14, 3, 15, 2, 16 }
   local hlit = 257 + bs:getb(5)
   local hdist = 1 + bs:getb(5)
@@ -192,10 +202,10 @@ local function inflate_dynamic(out,bs)
   local littable,nlit = hufftable_create(litdepths)
   local distdepths = {} for i=hlit+1,#depths do table.insert(distdepths,depths[i]) end
   local disttable,ndist = hufftable_create(distdepths)
-  inflate_loop(out,bs,nlit,ndist,littable,disttable)
+  inflate_block_loop(out,bs,nlit,ndist,littable,disttable)
 end
 
-local function inflate_static(out,bs)
+local function inflate_block_static(out,bs)
   local cnt = { 144, 112, 24, 8 }
   local dpt = { 8, 9, 7, 8 }
   local depths = {}
@@ -211,10 +221,10 @@ local function inflate_static(out,bs)
     depths[i] = 5
   end
   local disttable,ndist = hufftable_create(depths)
-  inflate_loop(out,bs,nlit,ndist,littable,disttable)
+  inflate_block_loop(out,bs,nlit,ndist,littable,disttable)
 end
 
-local function inflate_uncompressed(out,bs)
+local function inflate_block_uncompressed(out,bs)
   bs:flushb(bit.band(bs.n,7))
   local len = bs:getb(16)
   if bs.n > 0 then
@@ -231,28 +241,25 @@ local function inflate_uncompressed(out,bs)
   bs.pos = bs.pos + len
 end
 
-function zzlib.gunzip(buf)
-  local p=11
-  local size = buf:len()
+local function inflate_main(bs)
+  bs.pos=11
   local last,type
-  if bit.band(buf:byte(4),8) ~= 0 then
-    local pos = buf:find("\0",p)
-    local name = buf:sub(p,pos-1)
-    p = pos+1
+  if bit.band(bs.buf:byte(4),8) ~= 0 then
+    local pos = bs.buf:find("\0",bs.pos)
+    -- local name = bs.buf:sub(bs.pos,pos-1)
+    bs.pos = pos+1
   end
-  local unpacked_size = read32(buf,size-3)
-  local bs = bitstream_init(buf,p)
   local output = {}
   repeat
     local block
     last = bs:getb(1)
     type = bs:getb(2)
     if type == 0 then
-      inflate_uncompressed(output,bs)
+      inflate_block_uncompressed(output,bs)
     elseif type == 1 then
-      inflate_static(output,bs)
+      inflate_block_static(output,bs)
     elseif type == 2 then
-      inflate_dynamic(output,bs)
+      inflate_block_dynamic(output,bs)
     else
       error("unsupported block type")
     end
@@ -268,6 +275,18 @@ function zzlib.gunzip(buf)
     size = size - bsize
   end
   return str
+end
+
+function zzlib.gunzipf(filename)
+  local file,err = io.open(filename,"rb")
+  if not file then
+    return nil,err
+  end
+  return inflate_main(bitstream_init(file))
+end
+
+function zzlib.gunzip(str)
+  return inflate_main(bitstream_init(str))
 end
 
 -- init reverse array

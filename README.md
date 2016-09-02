@@ -12,7 +12,24 @@ or http://www.wtfpl.net/ for more details.
 
 ## Usage
 
-Its use is straightforward. Read a file into a string, call the depacker, and get a string with the unpacked file contents. The following code snippet illustrates the general behaviour:
+There are two ways of using the library. You can either stream the input from a
+file, or read it from a string.
+
+
+### Stream from a file
+
+```
+-- import the zzlib library
+zzlib = require("zzlib")
+
+-- get the unpacked contents of the file in the 'output' string
+local output,err = zzlib.gunzipf("input.gz")
+if not output then error(err) end
+```
+
+### Read from a string
+
+Read a file into a string, call the depacker, and get a string with the unpacked file contents, as follows:
 
 ```
 -- import the zzlib library
