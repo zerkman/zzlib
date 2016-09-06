@@ -245,14 +245,31 @@ local function inflate_block_uncompressed(out,bs)
 end
 
 local function arraytostr(array)
-  local str = ""
+  local tmp = {}
   local size = #array
-  local i=1
+  local pos = 1
+  local imax = 1
   while size > 0 do
     local bsize = size>=2048 and 2048 or size
-    str = str .. string.char(unpack(array,i,i+bsize-1))
-    i = i + bsize
+    local s = string.char(unpack(array,pos,pos+bsize-1))
+    pos = pos + bsize
     size = size - bsize
+    local i = 1
+    while tmp[i] do
+      s = tmp[i]..s
+      tmp[i] = nil
+      i = i + 1
+    end
+    if i > imax then
+      imax = i
+    end
+    tmp[i] = s
+  end
+  local str = ""
+  for i=1,imax do
+    if tmp[i] then
+      str = tmp[i]..str
+    end
   end
   return str
 end

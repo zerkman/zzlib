@@ -4,7 +4,7 @@ This is a pure Lua implementation of a depacker for the zlib DEFLATE(RFC1951)/GZ
 
 The implementation is pretty fast. It makes use of the built-in bit32 (PUC-Rio
 Lua) or bit (LuaJIT) libraries for bitwise operations. Typical run times to
-depack lua-5.3.3.tar.gz on my 2013 i5 laptop are 0.99s with Lua 5.3, and 0.41s
+depack lua-5.3.3.tar.gz on my 2013 i5 laptop are 0.87s with Lua 5.3, and 0.28s
 with LuaJIT 2.0.4.
 
 zzlib is distributed under the WTFPL licence. See the COPYING file
