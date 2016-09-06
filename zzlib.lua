@@ -244,6 +244,19 @@ local function inflate_block_uncompressed(out,bs)
   bs.pos = bs.pos + len
 end
 
+local function arraytostr(array)
+  local str = ""
+  local size = #array
+  local i=1
+  while size > 0 do
+    local bsize = size>=2048 and 2048 or size
+    str = str .. string.char(unpack(array,i,i+bsize-1))
+    i = i + bsize
+    size = size - bsize
+  end
+  return str
+end
+
 local function inflate_main(bs)
   bs.pos=11
   local last,type
@@ -269,16 +282,7 @@ local function inflate_main(bs)
   until last == 1
   bs:flushb(bit.band(bs.n,7))
   bs:close()
-  local str = ""
-  local size = #output
-  local i=1
-  while size > 0 do
-    local bsize = size>=2000 and 2000 or size
-    str = str .. string.char(unpack(output,i,i+bsize-1))
-    i = i + bsize
-    size = size - bsize
-  end
-  return str
+  return arraytostr(output)
 end
 
 function zzlib.gunzipf(filename)
