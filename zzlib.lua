@@ -237,7 +237,6 @@ local function inflate_block_uncompressed(out,bs)
   if bit.bxor(len,nlen) ~= 65535 then
     error("LEN and NLEN don't match")
   end
-  local ret = bs.buf:sub(bs.pos,bs.pos+len-1)
   for i=bs.pos,bs.pos+len-1 do
     table.insert(out,bs.buf:byte(i,i))
   end
