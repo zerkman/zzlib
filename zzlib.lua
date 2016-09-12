@@ -27,8 +27,8 @@ local function bitstream_init(file)
   }
   -- get rid of n first bits
   function bs:flushb(n)
-    self.n = bs.n - n
-    bs.b = bit.rshift(bs.b,n)
+    self.n = self.n - n
+    self.b = bit.rshift(self.b,n)
   end
   -- get a number of n bits from stream
   function bs:getb(n)
@@ -160,7 +160,6 @@ local function inflate_block_loop(out,bs,nlit,ndist,littable,disttable)
       end
     end
   until lit == 256
-  return o
 end
 
 local function inflate_block_dynamic(out,bs)
