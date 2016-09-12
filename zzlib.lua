@@ -61,7 +61,7 @@ local function bitstream_init(file)
     end
     local h = reverse[bit.band(self.b,255)]
     local l = reverse[bit.band(bit.rshift(self.b,8),255)]
-    local v = bit.band(bit.rshift(bit.lshift(h,8)+l,16-n),2^n-1)
+    local v = bit.band(bit.rshift(bit.lshift(h,8)+l,16-n),bit.lshift(1,n)-1)
     local e = hufftable[v]
     local len = bit.band(e,15)
     local ret = bit.rshift(e,4)
@@ -111,10 +111,6 @@ local function hufftable_create(depths)
       next_code[len] = next_code[len] + 1
       local code0 = code * 2^(nbits-len)
       local code1 = (code+1) * 2^(nbits-len)
-      -- print("code="..code.." code0="..code0.." code1="..code1.." e="..e)
-      if code1 > 2^nbits then
-        error("code error")
-      end
       for j=code0,code1-1 do
         table[j] = e
       end
