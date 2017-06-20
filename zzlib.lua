@@ -291,6 +291,13 @@ local function inflate_main(bs)
 end
 
 local function inflate_gzip(bs)
+  local id1,id2,cm = bs.buf:byte(1,3)
+  if id1 ~= 31 or id2 ~= 139 then
+    error("invalid gzip header")
+  end
+  if cm ~= 8 then
+    error("only deflate format is supported")
+  end
   bs.pos=11
   if bit.band(bs.buf:byte(4),8) ~= 0 then
     local pos = bs.buf:find("\0",bs.pos)
@@ -313,7 +320,7 @@ local function inflate_zlib(bs)
     error("unsupported window size")
   end
   if bit.band(flg,32) ~= 0 then
-    error("preset dictionnary not implemented")
+    error("preset dictionary not implemented")
   end
   bs.pos=3
   return inflate_main(bs)
