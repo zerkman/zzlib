@@ -269,13 +269,7 @@ local function arraytostr(array)
 end
 
 local function inflate_main(bs)
-  bs.pos=11
   local last,type
-  if bit.band(bs.buf:byte(4),8) ~= 0 then
-    local pos = bs.buf:find("\0",bs.pos)
-    -- local name = bs.buf:sub(bs.pos,pos-1)
-    bs.pos = pos+1
-  end
   local output = {}
   repeat
     local block
@@ -296,16 +290,49 @@ local function inflate_main(bs)
   return arraytostr(output)
 end
 
+local function inflate_gzip(bs)
+  bs.pos=11
+  if bit.band(bs.buf:byte(4),8) ~= 0 then
+    local pos = bs.buf:find("\0",bs.pos)
+    -- local name = bs.buf:sub(bs.pos,pos-1)
+    bs.pos = pos+1
+  end
+  return inflate_main(bs)
+end
+
+local function inflate_zlib(bs)
+  local cmf = bs.buf:byte(1)
+  local flg = bs.buf:byte(2)
+  if (cmf*256+flg)%31 ~= 0 then
+    error("zlib header check bits are incorrect")
+  end
+  if bit.band(cmf,15) ~= 8 then
+    error("only deflate format is supported")
+  end
+  if bit.rshift(cmf,4) ~= 7 then
+    error("unsupported window size")
+  end
+  if bit.band(flg,32) ~= 0 then
+    error("preset dictionnary not implemented")
+  end
+  bs.pos=3
+  return inflate_main(bs)
+end
+
 function zzlib.gunzipf(filename)
   local file,err = io.open(filename,"rb")
   if not file then
     return nil,err
   end
-  return inflate_main(bitstream_init(file))
+  return inflate_gzip(bitstream_init(file))
 end
 
 function zzlib.gunzip(str)
-  return inflate_main(bitstream_init(str))
+  return inflate_gzip(bitstream_init(str))
+end
+
+function zzlib.inflate(str)
+  return inflate_zlib(bitstream_init(str))
 end
 
 -- init reverse array
