@@ -300,7 +300,7 @@ local function inflate_gzip(bs)
   bs.pos=11
   if bit.band(flg,4) ~= 0 then
     local xl1,xl2 = bs.buf.byte(bs.pos,bs.pos+1)
-    local xlen = xl1*256+xl2
+    local xlen = xl2*256+xl1
     bs.pos = bs.pos+xlen+2
   end
   if bit.band(flg,8) ~= 0 then
