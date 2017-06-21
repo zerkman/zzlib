@@ -289,6 +289,26 @@ local function inflate_main(bs)
   return arraytostr(output)
 end
 
+local crc32_table
+local function crc32(s,crc)
+  if not crc32_table then
+    crc32_table = {}
+    for i=0,255 do
+      local r=i
+      for j=1,8 do
+        r = bit.bxor(bit.rshift(r,1),bit.band(0xedb88320,bit.bnot(bit.band(r,1)-1)))
+      end
+      crc32_table[i] = r
+    end
+  end
+  crc = bit.bnot(crc or 0)
+  for i=1,#s do
+    local c = s:byte(i)
+    crc = bit.bxor(crc32_table[bit.band(bit.bxor(c,crc),0xff)],bit.rshift(crc,8))
+  end
+  return bit.bnot(crc)
+end
+
 local function inflate_gzip(bs)
   local id1,id2,cm,flg = bs.buf:byte(1,4)
   if id1 ~= 31 or id2 ~= 139 then
@@ -316,7 +336,11 @@ local function inflate_gzip(bs)
     bs.pos = bs.pos+2
   end
   local result = inflate_main(bs)
+  local crc = bs:getb(8)+256*(bs:getb(8)+256*(bs:getb(8)+256*bs:getb(8)))
   bs:close()
+  if crc ~= crc32(result) then
+    error("checksum verification failed")
+  end
   return result
 end
 
