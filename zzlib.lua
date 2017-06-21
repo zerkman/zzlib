@@ -349,8 +349,8 @@ local function inflate_zlib(bs)
   end
   bs.pos=3
   local result = inflate_main(bs)
-  bs:close()
   local adler = ((bs:getb(8)*256+bs:getb(8))*256+bs:getb(8))*256+bs:getb(8)
+  bs:close()
   if adler ~= adler32(result) then
     error("checksum verification failed")
   end
