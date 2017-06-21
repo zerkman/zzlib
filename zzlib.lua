@@ -286,7 +286,6 @@ local function inflate_main(bs)
     end
   until last == 1
   bs:flushb(bit.band(bs.n,7))
-  bs:close()
   return arraytostr(output)
 end
 
@@ -304,7 +303,21 @@ local function inflate_gzip(bs)
     -- local name = bs.buf:sub(bs.pos,pos-1)
     bs.pos = pos+1
   end
-  return inflate_main(bs)
+  local result = inflate_main(bs)
+  bs:close()
+  return result
+end
+
+-- compute Adler-32 checksum
+local function adler32(s)
+  local s1 = 1
+  local s2 = 0
+  for i=1,#s do
+    local c = s:byte(i)
+    s1 = (s1+c)%65521
+    s2 = (s2+s1)%65521
+  end
+  return s2*65536+s1
 end
 
 local function inflate_zlib(bs)
@@ -323,7 +336,13 @@ local function inflate_zlib(bs)
     error("preset dictionary not implemented")
   end
   bs.pos=3
-  return inflate_main(bs)
+  local result = inflate_main(bs)
+  bs:close()
+  local adler = ((bs:getb(8)*256+bs:getb(8))*256+bs:getb(8))*256+bs:getb(8)
+  if adler ~= adler32(result) then
+    error("checksum verification failed")
+  end
+  return result
 end
 
 function zzlib.gunzipf(filename)
