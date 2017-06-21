@@ -290,7 +290,7 @@ local function inflate_main(bs)
 end
 
 local function inflate_gzip(bs)
-  local id1,id2,cm = bs.buf:byte(1,3)
+  local id1,id2,cm,flg = bs.buf:byte(1,4)
   if id1 ~= 31 or id2 ~= 139 then
     error("invalid gzip header")
   end
@@ -298,10 +298,22 @@ local function inflate_gzip(bs)
     error("only deflate format is supported")
   end
   bs.pos=11
-  if bit.band(bs.buf:byte(4),8) ~= 0 then
+  if bit.band(flg,4) ~= 0 then
+    local xl1,xl2 = bs.buf.byte(bs.pos,bs.pos+1)
+    local xlen = xl1*256+xl2
+    bs.pos = bs.pos+xlen+2
+  end
+  if bit.band(flg,8) ~= 0 then
     local pos = bs.buf:find("\0",bs.pos)
-    -- local name = bs.buf:sub(bs.pos,pos-1)
     bs.pos = pos+1
+  end
+  if bit.band(flg,16) ~= 0 then
+    local pos = bs.buf:find("\0",bs.pos)
+    bs.pos = pos+1
+  end
+  if bit.band(flg,2) ~= 0 then
+    -- TODO: check header CRC16
+    bs.pos = bs.pos+2
   end
   local result = inflate_main(bs)
   bs:close()
