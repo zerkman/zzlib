@@ -2,6 +2,8 @@
 
 This is a pure Lua implementation of a depacker for the zlib DEFLATE(RFC1951)/GZIP(RFC1952) file format.
 zzlib also allows the decoding of zlib-compressed data (RFC1950).
+Also featured is basic support for extracting files from DEFLATE-compressed ZIP archives
+(no support for encryption).
 
 The implementation is pretty fast. It makes use of the built-in bit32 (PUC-Rio
 Lua) or bit (LuaJIT) libraries for bitwise operations. Typical run times to
@@ -13,11 +15,9 @@ or http://www.wtfpl.net/ for more details.
 
 ## Usage
 
-There are two ways of using the library. You can either stream the input from a
-file, or read it from a string.
+There are various ways of using the library.
 
-
-### Stream from a gzip file
+### Stream from a GZIP file
 
 ```
 -- import the zzlib library
@@ -28,7 +28,7 @@ local output,err = zzlib.gunzipf("input.gz")
 if not output then error(err) end
 ```
 
-### Read from a string
+### Read GZIP/zlib data from a string
 
 Read a file into a string, call the depacker, and get a string with the unpacked file contents, as follows:
 
@@ -44,4 +44,17 @@ else
   -- unpack the zlib input data to the 'output' string
   output = zzlib.inflate(input)
 end
+```
+
+### Extract file from a ZIP archive stored in a string
+
+Read a file into a string, call the depacker, and get a string with the unpacked contents of the chosen file, as follows:
+
+```
+-- import the zzlib library
+zzlib = require("zzlib")
+...
+
+-- extract a specific file from the input zip file
+output = zzlib.unzip(input,"lua-5.3.4/README")
 ```

@@ -397,6 +397,62 @@ function zzlib.inflate(str)
   return inflate_zlib(bitstream_init(str))
 end
 
+function string.int2le(str,pos)
+  local a,b = str:byte(pos,pos+1)
+  return b*256+a
+end
+
+function string.int4le(str,pos)
+  local a,b,c,d = str:byte(pos,pos+3)
+  return ((d*256+c)*256+b)*256+a
+end
+
+function zzlib.unzip(buf,filename)
+  local p = 1
+  local quit = false
+  while not quit do
+    local head = buf:int4le(p)
+    if head == 0x04034b50 then
+      -- local file header signature
+      local flag = buf:int2le(p+6)
+      local method = buf:int2le(p+8)
+      local crc = buf:int4le(p+14)
+      local csize = buf:int4le(p+18)
+      local namelen = buf:int2le(p+26)
+      local extlen = buf:int2le(p+28)
+      local name = buf:sub(p+30,p+29+namelen)
+      if bit.band(flag,1) ~= 0 then
+        error("no support for encrypted files")
+      elseif method ~= 8 and method ~= 0 then
+        error("unsupported compression method")
+      elseif bit.band(flag,8) ~= 0 then
+        error("no support for the data descriptor record")
+      end
+      p = p+30+namelen+extlen
+      if name == filename then
+        local result
+        if method == 0 then
+          -- no compression
+          result = buf:sub(p,p+csize-1)
+        else
+          -- DEFLATE compression
+          local bs = bitstream_init(buf)
+          bs.pos = p
+          result = inflate_main(bs)
+        end
+        if crc ~= crc32(result) then
+          error("checksum verification failed")
+        end
+        return result
+      end
+      p = p+csize
+    else
+      -- other header: end of the list of files
+      quit = true
+    end
+  end
+end
+
 -- init reverse array
 for i=0,255 do
   local k=0
