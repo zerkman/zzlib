@@ -11,8 +11,6 @@
 
 local zzlib = {}
 
-local reverse = {}
-
 local bit = bit32 or bit
 local unpack = table.unpack or unpack
 
@@ -59,9 +57,7 @@ local function bitstream_init(file)
       self.pos = self.pos + 1
       self.n = self.n + 8
     end
-    local h = reverse[bit.band(self.b,255)]
-    local l = reverse[bit.band(bit.rshift(self.b,8),255)]
-    local v = bit.band(bit.rshift(bit.lshift(h,8)+l,16-n),bit.lshift(1,n)-1)
+    local v = bit.band(self.b,bit.lshift(1,n)-1)
     local e = hufftable[v]
     local len = bit.band(e,15)
     local ret = bit.rshift(e,4)
@@ -108,12 +104,14 @@ local function hufftable_create(depths)
     if len > 0 then
       local e = (i-1)*16 + len
       local code = next_code[len]
-      next_code[len] = next_code[len] + 1
-      local code0 = code * 2^(nbits-len)
-      local code1 = (code+1) * 2^(nbits-len)
-      for j=code0,code1-1 do
-        table[j] = e
+      local rcode = 0
+      for j=1,len do
+        rcode = rcode + bit.lshift(bit.band(1,bit.rshift(code,j-1)),len-j)
       end
+      for j=0,2^nbits-1,2^len do
+        table[j+rcode] = e
+      end
+      next_code[len] = next_code[len] + 1
     end
   end
   return table,nbits
@@ -451,17 +449,6 @@ function zzlib.unzip(buf,filename)
       quit = true
     end
   end
-end
-
--- init reverse array
-for i=0,255 do
-  local k=0
-  for j=0,7 do
-    if bit.band(i,bit.lshift(1,j)) ~= 0 then
-      k = k + bit.lshift(1,7-j)
-    end
-  end
-  reverse[i] = k
 end
 
 return zzlib
