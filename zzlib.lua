@@ -28,8 +28,8 @@ local function bitstream_init(file)
     self.n = self.n - n
     self.b = bit.rshift(self.b,n)
   end
-  -- get a number of n bits from stream
-  function bs:getb(n)
+  -- peek a number of n bits from stream
+  function bs:peekb(n)
     while self.n < n do
       if self.pos > self.len then
         self.buf = self.file:read(4096)
@@ -40,25 +40,18 @@ local function bitstream_init(file)
       self.pos = self.pos + 1
       self.n = self.n + 8
     end
-    local ret = bit.band(self.b,bit.lshift(1,n)-1)
+    return bit.band(self.b,bit.lshift(1,n)-1)
+  end
+  -- get a number of n bits from stream
+  function bs:getb(n)
+    local ret = bs:peekb(n)
     self.n = self.n - n
     self.b = bit.rshift(self.b,n)
     return ret
   end
   -- get next variable-size of maximum size=n element from stream, according to Huffman table
   function bs:getv(hufftable,n)
-    while self.n < n do
-      if self.pos > self.len then
-        self.buf = self.file:read(4096)
-        self.len = self.buf:len()
-        self.pos = 1
-      end
-      self.b = self.b + bit.lshift(self.buf:byte(self.pos),self.n)
-      self.pos = self.pos + 1
-      self.n = self.n + 8
-    end
-    local v = bit.band(self.b,bit.lshift(1,n)-1)
-    local e = hufftable[v]
+    local e = hufftable[bs:peekb(n)]
     local len = bit.band(e,15)
     local ret = bit.rshift(e,4)
     self.n = self.n - len
