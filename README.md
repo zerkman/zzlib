@@ -7,8 +7,8 @@ Also featured is basic support for extracting files from DEFLATE-compressed ZIP 
 
 The implementation is pretty fast. It makes use of the built-in bit32 (PUC-Rio
 Lua) or bit (LuaJIT) libraries for bitwise operations. Typical run times to
-depack lua-5.3.3.tar.gz on my 2013 i5 laptop are 0.87s with Lua 5.3, and 0.28s
-with LuaJIT 2.0.4.
+depack lua-5.3.3.tar.gz on a single Core i7-6600U are 0.87s with Lua ≤ 5.2,
+0.50s with Lua 5.3, and 0.17s with LuaJIT 2.1.0.
 
 zzlib is distributed under the WTFPL licence. See the COPYING file
 or http://www.wtfpl.net/ for more details.
