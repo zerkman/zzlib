@@ -297,7 +297,11 @@ local function crc32(s,crc)
     local c = s:byte(i)
     crc = bit.bxor(crc32_table[bit.band(bit.bxor(c,crc),0xff)],bit.rshift(crc,8))
   end
-  return bit.bnot(crc)
+  crc = bit.bnot(crc)
+  if crc<0 then
+    crc = crc + 4294967296
+  end
+  return crc
 end
 
 local function inflate_gzip(bs)
