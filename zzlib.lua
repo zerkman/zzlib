@@ -152,49 +152,51 @@ local function int4le(str,pos)
 end
 
 function zzlib.unzip(buf,filename)
-  local p = 1
+  local p = #buf-21
   local quit = false
-  while not quit do
-    local head = int4le(buf,p)
-    if head == 0x04034b50 then
-      -- local file header signature
-      local flag = int2le(buf,p+6)
-      local method = int2le(buf,p+8)
-      local crc = int4le(buf,p+14)
-      local csize = int4le(buf,p+18)
-      local namelen = int2le(buf,p+26)
-      local extlen = int2le(buf,p+28)
-      local name = buf:sub(p+30,p+29+namelen)
-      if infl.band(flag,1) ~= 0 then
-        error("no support for encrypted files")
-      elseif method ~= 8 and method ~= 0 then
-        error("unsupported compression method")
-      elseif infl.band(flag,8) ~= 0 then
-        error("no support for the data descriptor record")
-      end
-      p = p+30+namelen+extlen
-      if name == filename then
-        local result
-        if method == 0 then
-          -- no compression
-          result = buf:sub(p,p+csize-1)
-        else
-          -- DEFLATE compression
-          local bs = infl.bitstream_init(buf)
-          bs.pos = p
-          result = arraytostr(infl.main(bs))
-        end
-        if crc ~= infl.crc32(result) then
-          error("checksum verification failed")
-        end
-        return result
-      end
-      p = p+csize
-    else
-      -- other header: end of the list of files
-      quit = true
-    end
+  if int4le(buf,p) ~= 0x06054b50 then
+    -- not sure there is a reliable way to locate the end of central directory record
+    -- if it has a variable sized comment field
+    error(".ZIP file comments not supported")
   end
+  local cdoffset = int4le(buf,p+16)
+  local nfiles = int2le(buf,p+10)
+  p = cdoffset+1
+  for i=1,nfiles do
+    if int4le(buf,p) ~= 0x02014b50 then
+      error("invalid central directory header signature")
+    end
+    local flag = int2le(buf,p+8)
+    local method = int2le(buf,p+10)
+    local crc = int4le(buf,p+16)
+    local namelen = int2le(buf,p+28)
+    local name = buf:sub(p+46,p+45+namelen)
+    if name == filename then
+      local headoffset = int4le(buf,p+42)
+      p = 1+headoffset
+      if int4le(buf,p) ~= 0x04034b50 then
+        error("invalid local header signature")
+      end
+      local csize = int4le(buf,p+18)
+      local extlen = int2le(buf,p+28)
+      p = p+30+namelen+extlen
+      if method == 0 then
+        -- no compression
+        result = buf:sub(p,p+csize-1)
+      else
+        -- DEFLATE compression
+        local bs = infl.bitstream_init(buf)
+        bs.pos = p
+        result = arraytostr(infl.main(bs))
+      end
+      if crc ~= infl.crc32(result) then
+        error("checksum verification failed")
+      end
+      return result
+    end
+    p = p+46+namelen+int2le(buf,p+30)+int2le(buf,p+32)
+  end
+  error("file '"..filename.."' not found in ZIP archive")
 end
 
 return zzlib
