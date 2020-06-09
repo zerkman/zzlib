@@ -14,6 +14,7 @@ local inflate = {}
 local bit = bit32 or bit
 
 inflate.band = bit.band
+inflate.rshift = bit.rshift
 
 function inflate.bitstream_init(file)
   local bs = {

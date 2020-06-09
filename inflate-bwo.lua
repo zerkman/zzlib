@@ -12,6 +12,7 @@
 local inflate = {}
 
 function inflate.band(x,y) return x & y end
+function inflate.rshift(x,y) return x >> y end
 
 function inflate.bitstream_init(file)
   local bs = {
