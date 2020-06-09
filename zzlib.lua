@@ -109,7 +109,7 @@ local function inflate_zlib(bs)
   if infl.band(cmf,15) ~= 8 then
     error("only deflate format is supported")
   end
-  if infl.rshift(cmf,4) ~= 7 then
+  if bit.rshift(cmf,4) ~= 7 then
     error("unsupported window size")
   end
   if infl.band(flg,32) ~= 0 then
