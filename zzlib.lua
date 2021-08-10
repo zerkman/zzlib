@@ -8,20 +8,13 @@
 -- To Public License, Version 2, as published by Sam Hocevar. See
 -- the COPYING file or http://www.wtfpl.net/ for more details.
 
--- Phil Katz's ZIP signatures
-
-local CDH = 0x02014b50 -- central directory header
-local LFH = 0x04034b50 -- local file header
-local CDE = 0x06054b50 -- central directory end
-local ODD = 0x08074b50 -- optional data descriptor
-
 
 local unpack = table.unpack or unpack
 local infl
 
 local lua_version = tonumber(_VERSION:match("^Lua (.*)"))
 if not lua_version or lua_version < 5.3 then
-  -- older version of Lua or LuaJIT being used - use bit/bit32-based implementation
+  -- older version of Lua or Luajit being used - use bit/bit32-based implementation
   infl = require("inflate-bit32")
 else
   -- From Lua 5.3, use implementation based on bitwise operators
@@ -160,31 +153,38 @@ end
 
 function zzlib.unzip(buf,filename)
   local p = #buf-21
-  if int4le(buf,p) ~= CDE then
+  local quit = false
+  if int4le(buf,p) ~= 0x06054b50 then
     -- not sure there is a reliable way to locate the end of central directory record
     -- if it has a variable sized comment field
     error(".ZIP file comments not supported")
   end
+  local cdoffset = int4le(buf,p+16)
   local nfiles = int2le(buf,p+10)
-  p = int4le(buf,p+16)+1
+  p = cdoffset+1
   for i=1,nfiles do
-    if int4le(buf,p) ~= CDH then
+    if int4le(buf,p) ~= 0x02014b50 then
       error("invalid central directory header signature")
     end
+    local flag = int2le(buf,p+8)
     local method = int2le(buf,p+10)
     local crc = int4le(buf,p+16)
     local namelen = int2le(buf,p+28)
     local name = buf:sub(p+46,p+45+namelen)
     if name == filename then
-      p = 1+int4le(buf,p+42)
-      if int4le(buf,p) ~= LFH then
+      local headoffset = int4le(buf,p+42)
+      p = 1+headoffset
+      if int4le(buf,p) ~= 0x04034b50 then
         error("invalid local header signature")
       end
       local csize = int4le(buf,p+18)
-      p = p+30+namelen+int2le(buf,p+28)
-      if method == 0 then -- no compression
+      local extlen = int2le(buf,p+28)
+      p = p+30+namelen+extlen
+      if method == 0 then
+        -- no compression
         result = buf:sub(p,p+csize-1)
-      else -- DEFLATE compression
+      else
+        -- DEFLATE compression
         local bs = infl.bitstream_init(buf)
         bs.pos = p
         result = arraytostr(infl.main(bs))
@@ -197,30 +197,6 @@ function zzlib.unzip(buf,filename)
     p = p+46+namelen+int2le(buf,p+30)+int2le(buf,p+32)
   end
   error("file '"..filename.."' not found in ZIP archive")
-end
-
-function zzlib.zipfilenames(buf)
-  local filenames = {}
-  local p = #buf-21
-  if int4le(buf,p) ~= CDE then
-    error(".ZIP file comments not supported")
-  end
-  local nfiles = int2le(buf,p+10)
-  p = int4le(buf,p+16)+1
-  for i=1,nfiles do
-    if int4le(buf,p) ~= CDH then
-      error("invalid central directory header signature")
-    end
-    local namelen = int2le(buf,p+28)
-    local name = buf:sub(p+46,p+45+namelen)
-    table.insert(filenames,name)
-    p = p+46+namelen+int2le(buf,p+30)+int2le(buf,p+32)
-  end
-  return filenames
-end
-
-function zzlib.zipfilesnum(buf)
-  return int2le(buf,#buf-11)
 end
 
 return zzlib
