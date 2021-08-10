@@ -55,6 +55,17 @@ Read a file into a string, call the depacker, and get a string with the unpacked
 zzlib = require("zzlib")
 ...
 
--- extract a specific file from the input zip file
-output = zzlib.unzip(input,"lua-5.3.4/README")
+-- read binary ZIP archive into buffer
+local f=io.open("archive.zip","rb")
+  buf=f:read("*a")
+f:close()
+...
+
+-- read filenames from ZIP archive
+local filenames = {}
+filenames = zzlib.zipfilenames(buf)
+...
+
+-- extract a first file from ZIP archive
+output = zzlib.unzip(buf,filenames[1])
 ```

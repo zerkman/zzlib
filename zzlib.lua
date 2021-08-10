@@ -199,4 +199,28 @@ function zzlib.unzip(buf,filename)
   error("file '"..filename.."' not found in ZIP archive")
 end
 
+function zzlib.zipfilenames(buf)
+  local filenames = {}
+  local p = #buf-21
+  if int4le(buf,p) ~= 0x06054b50 then
+    error(".ZIP file comments not supported")
+  end
+  local nfiles = int2le(buf,p+10)
+  p = int4le(buf,p+16)+1
+  for i=1,nfiles do
+    if int4le(buf,p) ~= 0x02014b50 then
+      error("invalid central directory header signature")
+    end
+    local namelen = int2le(buf,p+28)
+    local name = buf:sub(p+46,p+45+namelen)
+    table.insert(filenames,name)
+    p = p+46+namelen+int2le(buf,p+30)+int2le(buf,p+32)
+  end
+  return filenames
+end
+
+function zzlib.zipfilesnum(buf)
+  return int2le(buf,#buf-11)
+end
+
 return zzlib
