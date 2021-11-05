@@ -46,7 +46,7 @@ else
 end
 ```
 
-### Extract file from a ZIP archive stored in a string
+### Extract a file from a ZIP archive stored in a string
 
 Read a file into a string, call the depacker, and get a string with the unpacked contents of the chosen file, as follows:
 
@@ -57,4 +57,26 @@ zzlib = require("zzlib")
 
 -- extract a specific file from the input zip file
 output = zzlib.unzip(input,"lua-5.3.4/README")
+```
+
+### Process the list of files from a ZIP archive stored in a string
+
+The `zzlib.files()` iterator function allows you to span the whole list of files in a ZIP archive, as follows:
+
+```
+for _,name,offset,size,packed,crc in zzlib.files(input) do
+  print(string.format("%10d",size),name)
+end
+```
+
+During such a loop, the `packed` boolean variable is set to `true` if the current file is packed. You may then decide to unpack it using this function call:
+
+```
+output = zzlib.unzip(input,offset,crc)
+```
+
+If the file is not packed, then you can directly extract its contents using `string.sub`:
+
+```
+output = input:sub(offset,offset+size-1)
 ```

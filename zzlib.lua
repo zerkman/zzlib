@@ -125,6 +125,16 @@ local function inflate_zlib(bs)
   return result
 end
 
+local function inflate_raw(buf,offset,crc)
+  local bs = infl.bitstream_init(buf)
+  bs.pos = offset
+  local result = arraytostr(infl.main(bs))
+  if crc and crc ~= infl.crc32(result) then
+    error("checksum verification failed")
+  end
+  return result
+end
+
 function zzlib.gunzipf(filename)
   local file,err = io.open(filename,"rb")
   if not file then
@@ -151,50 +161,57 @@ local function int4le(str,pos)
   return ((d*256+c)*256+b)*256+a
 end
 
-function zzlib.unzip(buf,filename)
+local function nextfile(buf,p)
+  if int4le(buf,p) ~= 0x02014b50 then
+    -- end of central directory list
+    return
+  end
+  -- local flag = int2le(buf,p+8)
+  local packed = int2le(buf,p+10)~=0
+  local crc = int4le(buf,p+16)
+  local namelen = int2le(buf,p+28)
+  local name = buf:sub(p+46,p+45+namelen)
+  local offset = int4le(buf,p+42)+1
+  p = p+46+namelen+int2le(buf,p+30)+int2le(buf,p+32)
+  if int4le(buf,offset) ~= 0x04034b50 then
+    error("invalid local header signature")
+  end
+  local size = int4le(buf,offset+18)
+  local extlen = int2le(buf,offset+28)
+  offset = offset+30+namelen+extlen
+  return p,name,offset,size,packed,crc
+end
+
+function zzlib.files(buf)
   local p = #buf-21
-  local quit = false
   if int4le(buf,p) ~= 0x06054b50 then
     -- not sure there is a reliable way to locate the end of central directory record
     -- if it has a variable sized comment field
     error(".ZIP file comments not supported")
   end
-  local cdoffset = int4le(buf,p+16)
-  local nfiles = int2le(buf,p+10)
-  p = cdoffset+1
-  for i=1,nfiles do
-    if int4le(buf,p) ~= 0x02014b50 then
-      error("invalid central directory header signature")
-    end
-    local flag = int2le(buf,p+8)
-    local method = int2le(buf,p+10)
-    local crc = int4le(buf,p+16)
-    local namelen = int2le(buf,p+28)
-    local name = buf:sub(p+46,p+45+namelen)
+  local cdoffset = int4le(buf,p+16)+1
+  return nextfile,buf,cdoffset
+end
+
+function zzlib.unzip(buf,arg1,arg2)
+  if type(arg1) == "number" then
+    -- mode 1: unpack data from specified position in zip file
+    return inflate_raw(buf,arg1,arg2)
+  end
+  -- mode 2: search and unpack file from zip file
+  local filename = arg1
+  for _,name,offset,size,packed,crc in zzlib.files(buf) do
     if name == filename then
-      local headoffset = int4le(buf,p+42)
-      p = 1+headoffset
-      if int4le(buf,p) ~= 0x04034b50 then
-        error("invalid local header signature")
-      end
-      local csize = int4le(buf,p+18)
-      local extlen = int2le(buf,p+28)
-      p = p+30+namelen+extlen
-      if method == 0 then
+      local result
+      if not packed then
         -- no compression
-        result = buf:sub(p,p+csize-1)
+        result = buf:sub(offset,offset+size-1)
       else
         -- DEFLATE compression
-        local bs = infl.bitstream_init(buf)
-        bs.pos = p
-        result = arraytostr(infl.main(bs))
-      end
-      if crc ~= infl.crc32(result) then
-        error("checksum verification failed")
+        result = inflate_raw(buf,offset,crc)
       end
       return result
     end
-    p = p+46+namelen+int2le(buf,p+30)+int2le(buf,p+32)
   end
   error("file '"..filename.."' not found in ZIP archive")
 end
