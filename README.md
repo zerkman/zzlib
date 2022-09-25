@@ -1,4 +1,6 @@
-# zzlib
+# zzlib-roblox
+
+A refactor of [zerkman/zzlib](https://github.com/zerkman/zzlib) for use in the Roblox engine and through [Wally](https://wally.run/). The wally package can be found at `neurastudios/zzlib-roblox`.
 
 This is a pure Lua implementation of a depacker for the zlib DEFLATE(RFC1951)/GZIP(RFC1952) file format.
 zzlib also allows the decoding of zlib-compressed data (RFC1950).
