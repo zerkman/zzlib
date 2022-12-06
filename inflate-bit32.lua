@@ -21,7 +21,7 @@ function inflate.bitstream_init(file)
     file = file,  -- the open file handle
     buf = nil,    -- character buffer
     len = nil,    -- length of character buffer
-    pos = 1,      -- position in char buffer
+    pos = 1,      -- position in char buffer, next to be read
     b = 0,        -- bit buffer
     n = 0,        -- number of bits in buffer
   }
@@ -44,7 +44,7 @@ function inflate.bitstream_init(file)
   -- peek a number of n bits from stream
   function bs:peekb(n)
     while self.n < n do
-      self.b = self.b + bit.lshift(self.buf:byte(self.pos),self.n)
+      self.b = self.b + bit.lshift(self:next_byte(),self.n)
       self.n = self.n + 8
     end
     return bit.band(self.b,bit.lshift(1,n)-1)
