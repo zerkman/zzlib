@@ -30,16 +30,21 @@ function inflate.bitstream_init(file)
     self.n = self.n - n
     self.b = bit.rshift(self.b,n)
   end
+  -- returns the next byte from the stream, excluding any half-read bytes
+  function bs:next_byte()
+    if self.pos > self.len then
+      self.buf = self.file:read(4096)
+      self.len = self.buf:len()
+      self.pos = 1
+    end
+    local pos = self.pos
+    self.pos = self.pos + 1
+    return self.buf:byte(pos)
+  end
   -- peek a number of n bits from stream
   function bs:peekb(n)
     while self.n < n do
-      if self.pos > self.len then
-        self.buf = self.file:read(4096)
-        self.len = self.buf:len()
-        self.pos = 1
-      end
       self.b = self.b + bit.lshift(self.buf:byte(self.pos),self.n)
-      self.pos = self.pos + 1
       self.n = self.n + 8
     end
     return bit.band(self.b,bit.lshift(1,n)-1)
@@ -225,10 +230,9 @@ local function block_uncompressed(out,bs)
   if bit.bxor(len,nlen) ~= 65535 then
     error("LEN and NLEN don't match")
   end
-  for i=bs.pos,bs.pos+len-1 do
-    table.insert(out,bs.buf:byte(i,i))
+  for i=1,len do
+    table.insert(out,bs:next_byte())
   end
-  bs.pos = bs.pos + len
 end
 
 function inflate.main(bs)
