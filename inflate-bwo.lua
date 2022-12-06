@@ -36,7 +36,7 @@ function inflate.bitstream_init(file)
       self.pos = 1
     end
     local pos = self.pos
-    self.pos = self.pos + 1
+    self.pos = pos + 1
     return self.buf:byte(pos)
   end
   -- peek a number of n bits from stream
