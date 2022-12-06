@@ -19,7 +19,7 @@ function inflate.bitstream_init(file)
     file = file,  -- the open file handle
     buf = nil,    -- character buffer
     len = nil,    -- length of character buffer
-    pos = 1,      -- position in char buffer
+    pos = 1,      -- position in char buffer, next to be read
     b = 0,        -- bit buffer
     n = 0,        -- number of bits in buffer
   }
@@ -28,16 +28,21 @@ function inflate.bitstream_init(file)
     self.n = self.n - n
     self.b = self.b >> n
   end
+  -- returns the next byte from the stream, excluding any half-read bytes
+  function bs:next_byte()
+    if self.pos > self.len then
+      self.buf = self.file:read(4096)
+      self.len = self.buf:len()
+      self.pos = 1
+    end
+    local pos = self.pos
+    self.pos = self.pos + 1
+    return self.buf:byte(pos)
+  end
   -- peek a number of n bits from stream
   function bs:peekb(n)
     while self.n < n do
-      if self.pos > self.len then
-        self.buf = self.file:read(4096)
-        self.len = self.buf:len()
-        self.pos = 1
-      end
-      self.b = self.b + (self.buf:byte(self.pos)<<self.n)
-      self.pos = self.pos + 1
+      self.b = self.b + (self:next_byte()<<self.n)
       self.n = self.n + 8
     end
     return self.b & ((1<<n)-1)
@@ -223,10 +228,9 @@ local function block_uncompressed(out,bs)
   if len~nlen ~= 65535 then
     error("LEN and NLEN don't match")
   end
-  for i=bs.pos,bs.pos+len-1 do
-    table.insert(out,bs.buf:byte(i,i))
+  for i=1,len do
+    table.insert(out,bs:next_byte())
   end
-  bs.pos = bs.pos + len
 end
 
 function inflate.main(bs)
