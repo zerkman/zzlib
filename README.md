@@ -1,5 +1,7 @@
 # zzlib
 
+Copyright (c) 2019-2024 by François Galea (fgalea à free.fr)
+
 This is a pure Lua implementation of a depacker for the zlib DEFLATE(RFC1951)/GZIP(RFC1952) file format.
 zzlib also allows the decoding of zlib-compressed data (RFC1950).
 Also featured is basic support for extracting files from DEFLATE-compressed ZIP archives
